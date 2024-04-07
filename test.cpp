@@ -88,12 +88,20 @@ void test_floyd() {
             {3100, 5000, 3300, 1100, 0}
     };
 
+    vector<vector<double>> graph5 = {
+            {0}
+    };
 
-//    write few functions
-    assert(floyd_warshall(graph1) == expected1);  //pass int graph
-    assert(floyd_warshall(graph2) == expected2);  //pass double graph
-    assert(floyd_warshall(graph3) == expected3); // pass zero entry graph
+    vector<vector<double>> expected5 = {
+            {0}
+    };
+
+    
+    assert(floyd_warshall(graph1) == expected1); //pass int graph
+    assert(floyd_warshall(graph2) == expected2); //pass double graph
+    assert(floyd_warshall(graph3) == expected3); // pass zero entry 2x2 graph
     assert(floyd_warshall(graph4) == expected4); // pass large number graph
+    assert(floyd_warshall(graph5) == expected5); // pass one vertex graph
 }
 
 int main() {
