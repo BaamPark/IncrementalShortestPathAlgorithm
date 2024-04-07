@@ -72,10 +72,10 @@ int main() {
     vector<vector<double>> graph(V, vector<double>(V, 0));
 
     // Generate graph data
-    graph[0][1] = 5;
-    graph[0][3] = 10;
-    graph[1][2] = 3;
-    graph[2][3] = 1;
+    graph[0][1] = 5.1;
+    graph[0][3] = 2.5;
+    graph[1][2] = 3.2;
+    graph[2][3] = 1.8;
 
     // Run Floyd-Warshall algorithm and return the distance matrix
     vector<vector<double>> distance = floyd_warshall(graph);
