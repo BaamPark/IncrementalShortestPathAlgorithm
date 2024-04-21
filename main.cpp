@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <limits>
+#include <queue>
 
 using namespace std;
 
@@ -33,7 +34,7 @@ vector<vector<double>> floyd_warshall(const vector<vector<double>>& graph) {
     return distance;
 }
 
-// Function for dynamic shortest path algorithms by Ramalingam and Rep
+// Incremental APSP for one source (truncated BFS) Ramalingam (truncated BFS)
 // time complexity O(V+E)
 vector<vector<double>> incremental_apsp(const vector<vector<double>>& graph, vector<vector<double>>& distance,
                                         int source, int u, int v, double w) {
@@ -42,24 +43,23 @@ vector<vector<double>> incremental_apsp(const vector<vector<double>>& graph, vec
     new_graph[u][v] = w; // Update the graph with the new weight w for edge u->v
 
     vector<bool> vis(V, false);
-    vector<int> Q;
+    queue<int> Q;
 
     // Update the distance from source to v if the new path is shorter
     if (distance[source][v] > distance[source][u] + w) {
         distance[source][v] = distance[source][u] + w;
-        Q.push_back(v);
+        Q.push(v);
         vis[v] = true;
-    }
-
-    // Truncated BFS (Breadth-First Search)
-    while (!Q.empty()) {
-        int y = Q.front();
-        Q.erase(Q.begin());
-        distance[source][y] = distance[source][u] + w + distance[v][y];
-        for (int w_index = 0; w_index < V; ++w_index) {
-            if (new_graph[y][w_index] > 0 && !vis[w_index] && distance[source][w_index] > distance[source][u] + w + distance[v][w_index]) {
-                vis[w_index] = true;
-                Q.push_back(w_index);
+        // Truncated BFS (Breadth-First Search)
+        while (!Q.empty()) {
+            int y = Q.front();
+            Q.pop();
+            distance[source][y] = distance[source][u] + w + distance[v][y];
+            for (int w_index = 0; w_index < V; ++w_index) {
+                if (new_graph[y][w_index] > 0 && !vis[w_index] && distance[source][w_index] > distance[source][u] + w + distance[v][w_index]) {
+                    vis[w_index] = true;
+                    Q.push(w_index);
+                }
             }
         }
     }
@@ -72,10 +72,10 @@ int main() {
     vector<vector<double>> graph(V, vector<double>(V, 0));
 
     // Generate graph data
-    graph[0][1] = 5.1;
-    graph[0][3] = 2.5;
-    graph[1][2] = 3.2;
-    graph[2][3] = 1.8;
+    graph[0][1] = 5;
+    graph[0][3] = 2;
+    graph[1][2] = 3;
+    graph[2][3] = 1;
 
     // Run Floyd-Warshall algorithm and return the distance matrix
     vector<vector<double>> distance = floyd_warshall(graph);
