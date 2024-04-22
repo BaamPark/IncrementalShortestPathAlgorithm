@@ -6,6 +6,7 @@
 
 ## Week2
 - Write unit testing with five test cases to assess the floyd Warshall algorithm
+- Added reference papers folders, start to work on an algorithm by CAMIL DEMETRESCU and GIUSEPPE F. ITALIANO.
 
 ## Week3
 - Read papers, Find more related papers.
