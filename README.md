@@ -13,6 +13,8 @@
 
 ## Week4
 - Implement the first step of an incremental shortest path algorithm proposed in 2004. It's a complicated algorithm with multiple steps.
+- Implement QUINCA algorithm proposed in 2016
 
 ## References
 [1] Ramalingam, Ganesan, and Thomas Reps. "On the computational complexity of dynamic graph problems." Theoretical Computer Science 158, no. 1-2 (1996): 233-277.
+[2] Slobbe, Arie, Elisabetta Bergamini, and Henning Meyerhenke."Faster incremental all-pairs shortest paths." KIT, 2016.
