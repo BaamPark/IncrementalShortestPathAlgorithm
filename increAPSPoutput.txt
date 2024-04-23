@@ -1,0 +1,38 @@
+suhask@nbp-202-88 IncrementalShortestPathAlgorithm % g++ -std=c++11 -o incremental_apsp incremental_apsp.cpp
+suhask@nbp-202-88 IncrementalShortestPathAlgorithm % ./incremental_apsp                                     
+
+Testing Floyd-Warshall algorithm...
+Floyd-Warshall tests passed!
+
+Randomly generated graph:
+0.000000        INF     4.000000        100.000000      INF     INF     INF     INF     INF     INF
+INF     0.000000        INF     INF     INF     INF     INF     73.000000       INF     INF
+INF     INF     0.000000        INF     INF     INF     INF     INF     INF     INF
+INF     INF     INF     0.000000        INF     INF     86.000000       30.000000       45.000000       INF
+INF     INF     INF     INF     0.000000        INF     INF     2.000000        24.000000       INF
+INF     INF     INF     INF     INF     0.000000        INF     INF     92.000000       INF
+4.000000        INF     INF     INF     INF     INF     0.000000        INF     INF     INF
+34.000000       INF     INF     INF     INF     INF     13.000000       0.000000        INF     74.000000
+25.000000       INF     INF     INF     INF     INF     36.000000       INF     0.000000        INF
+66.000000       INF     INF     INF     INF     INF     INF     INF     INF     0.000000
+
+After incremental updates:
+0.000000        INF     4.000000        100.000000      INF     136.000000      54.000000       130.000000      145.000000      204.000000
+90.000000       0.000000        94.000000       190.000000      INF     INF     86.000000       73.000000       235.000000      147.000000
+INF     INF     0.000000        INF     INF     INF     INF     INF     INF     INF
+47.000000       INF     51.000000       0.000000        INF     INF     43.000000       30.000000       45.000000       104.000000
+19.000000       INF     23.000000       119.000000      0.000000        INF     15.000000       2.000000        24.000000       76.000000
+117.000000      INF     121.000000      217.000000      INF     0.000000        128.000000      247.000000      92.000000       321.000000
+4.000000        INF     8.000000        104.000000      INF     INF     0.000000        134.000000      149.000000      208.000000
+17.000000       INF     21.000000       117.000000      INF     INF     13.000000       0.000000        162.000000      74.000000
+25.000000       INF     29.000000       125.000000      INF     INF     36.000000       155.000000      0.000000        229.000000
+66.000000       INF     70.000000       166.000000      INF     INF     209.000000      196.000000      211.000000      0.000000
+
+Here's a breakdown of what you're seeing:
+
+ - Testing Floyd-Warshall algorithm...
+     This line indicates that the tests for the Floyd-Warshall algorithm passed.
+ - Randomly generated graph:
+     This matrix represents the distances between nodes in the randomly generated graph. INF stands for infinity, which means there's no direct edge between the nodes. The numbers represent the weights of the edges between the nodes.
+ - After incremental updates:
+     This matrix shows the distances between nodes after performing the incremental updates on the randomly generated graph.
