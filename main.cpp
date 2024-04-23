@@ -34,54 +34,109 @@ vector<vector<double>> floyd_warshall(const vector<vector<double>>& graph) {
     return distance;
 }
 
-// Incremental APSP for one source (truncated BFS) Ramalingam (truncated BFS)
+
+vector<int> find_affected_source(vector<vector<double>>& distance, int u, int v, double w) {
+    int n = distance.size();
+
+    vector<bool> vis(n, false);
+    vector<int> affected_sources;
+
+    if (distance[u][v] > w) {
+        queue<int> Q;
+        Q.push(u);
+        vis[u] = true;
+
+        while (!Q.empty()) {
+            int x = Q.front();
+            Q.pop();
+
+            for (int z = 0; z < n; ++z) {
+                if (!vis[z] && distance[z][v] > distance[z][u] + w) {
+                    Q.push(z);
+                    vis[z] = true;
+                    affected_sources.push_back(z);
+                }
+            }
+        }
+
+        // Reset vis vector to false for all vertices.
+        fill(vis.begin(), vis.end(), false);
+    }
+
+    return affected_sources;
+}
+
+// PR algorithm proposed by Ramalingam and Rep
 // time complexity O(V+E)
-vector<vector<double>> incremental_apsp(const vector<vector<double>>& graph, vector<vector<double>>& distance,
-                                        int source, int u, int v, double w) {
-    int V = graph.size();
-    vector<vector<double>> new_graph = graph;
-    new_graph[u][v] = w; // Update the graph with the new weight w for edge u->v
+vector<vector<double>> incremental_apsp_pr(vector<vector<double>>& distance, int u, int v, double w) {
 
-    vector<bool> vis(V, false);
-    queue<int> Q;
+    vector<int> sources = find_affected_source(distance, u, v, w);
+    int V = distance.size();
+    for (int s : sources) {
+        vector<bool> vis(V, false);
+        queue<int> Q;
 
-    // Update the distance from source to v if the new path is shorter
-    if (distance[source][v] > distance[source][u] + w) {
-        distance[source][v] = distance[source][u] + w;
+        distance[u][v] = w;
+        // Update the distance from source to v if the new path is shorter
+        if (distance[s][v] > distance[s][u] + w) {
+            distance[s][v] = distance[s][u] + w;
+            Q.push(v);
+            vis[v] = true;
+
+
+            // Truncated BFS (Breadth-First Search)
+            while (!Q.empty()) {
+                int y = Q.front();
+                Q.pop();
+                distance[s][y] = distance[s][u] + w + distance[v][y];
+                for (int w_index = 0; w_index < V; ++w_index) {
+                    if (!vis[w_index] && distance[s][w_index] > distance[s][u] + w + distance[v][w_index]) {
+                        vis[w_index] = true;
+                        Q.push(w_index);
+                    }
+                }
+            }
+        }
+    }
+    return distance;
+}
+
+//QUINCA algorithm proposed by Slobbe, Bergamini, and Meyerhenke
+vector<vector<double>> incremental_apsp_quinca(vector<vector<double>>& distances, int u, int v, double w_prime) {
+    int n = distances.size();
+    vector<int> affected_sources = find_affected_source(distances, u, v, w_prime);
+
+    if (distances[u][v] > w_prime) {
+        queue<int> Q;
+        vector<bool> visited(n, false);
+        distances[u][v] = w_prime; // Update the distance for the edge (u,v)
+
         Q.push(v);
-        vis[v] = true;
-        // Truncated BFS (Breadth-First Search)
+        visited[v] = true;
+
         while (!Q.empty()) {
             int y = Q.front();
             Q.pop();
-            distance[source][y] = distance[source][u] + w + distance[v][y];
-            for (int w_index = 0; w_index < V; ++w_index) {
-                if (new_graph[y][w_index] > 0 && !vis[w_index] && distance[source][w_index] > distance[source][u] + w + distance[v][w_index]) {
-                    vis[w_index] = true;
-                    Q.push(w_index);
+
+            for (int x : affected_sources) {
+                if (distances[x][y] > distances[x][u] + w_prime + distances[v][y]) {
+                    distances[x][y] = distances[x][u] + w_prime + distances[v][y];
+                }
+            }
+
+            for (int w = 0; w < n; ++w) {
+                if (!visited[w] && distances[u][w] > w_prime + distances[v][w]) {
+                    Q.push(w);
+                    visited[w] = true;
                 }
             }
         }
     }
 
-    return distance;
+    return distances; // Return the updated distance matrix
 }
 
-int main() {
-    int V = 4;
-    vector<vector<double>> graph(V, vector<double>(V, 0));
-
-    // Generate graph data
-    graph[0][1] = 5;
-    graph[0][3] = 2;
-    graph[1][2] = 3;
-    graph[2][3] = 1;
-
-    // Run Floyd-Warshall algorithm and return the distance matrix
-    vector<vector<double>> distance = floyd_warshall(graph);
-
-    // Print the distance matrix
-    cout << "Initial Distance Matrix:\n";
+void print_distance(vector<vector<double>> distance) {
     for (const auto& row : distance) {
         for (double val : row) {
             if (val == INF)
@@ -91,23 +146,38 @@ int main() {
         }
         cout << "\n";
     }
+}
 
-    // Set source, u, v, and w
-    int source = 0, u = 1, v = 2;
-    double w = 2;
+int main() {
+    int V = 6;
+    vector<vector<double>> graph(V, vector<double>(V, 0));
 
-    // Run the incremental APSP algorithm
-    distance = incremental_apsp(graph, distance, source, u, v, w);
+    graph[0][2] = 1;
+    graph[1][2] = 2;
+    graph[3][4] = 2;
+    graph[3][5] = 1;
+    graph[4][0] = 3;
+    graph[5][1] = 3;
 
-    // Print the updated distance row from the source to all nodes
-    cout << "\nUpdated distances from source " << source << " to all nodes after applying incremental APSP:\n";
-    for (double dist : distance[source]) {
-        if (dist == INF)
-            cout << "INF ";
-        else
-            cout << dist << " ";
-    }
-    cout << "\n";
+    // Run Floyd-Warshall algorithm and return the distance matrix
+    vector<vector<double>> distance = floyd_warshall(graph);
+    vector<vector<double>> distance_for_PR = distance;
+    vector<vector<double>> distance_for_QUINCA = distance;
+    // Print the distance matrix
+    cout << "Initial Distance Matrix:\n";
+    print_distance(distance);
+
+    int u = 2, v = 3;
+    double w = 1;
+    vector<int> sources = find_affected_source(distance_for_PR, u, v, w);
+
+    distance_for_PR = incremental_apsp_pr(distance_for_PR, u, v, w);
+    cout << "Updated Distance Matrix by PR algorithm:\n";
+    print_distance(distance_for_PR);
+
+    distance_for_QUINCA = incremental_apsp_quinca(distance_for_QUINCA, u, v, w);
+    cout << "Updated Distance Matrix by PR algorithm:\n";
+    print_distance(distance_for_QUINCA);
 
     return 0;
 }
