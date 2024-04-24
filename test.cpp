@@ -4,8 +4,60 @@
 #include <limits>
 #include <queue>
 #include <cstdlib>
+#include <map>
 using namespace std;
 
+// Data structure required by the LDSP algorithm
+class DS{
+    public:
+        int num_V;
+        map< vector<int>, vector< vector<int> > > L;
+        map< vector<int>, vector< vector<int> > > R;
+        map< vector<int>, vector< vector<int> > > Lstar;
+        map< vector<int>, vector< vector<int> > > Rstar;
+        map< vector<int>, double >  pathweight;
+        //P and Pstar is priority queue here. Need to do make_heap after each access.
+        vector< vector<int> > **P;
+        vector< vector<int> > **Pstar;
+        bool **extracted;
+        DS(int v){
+            num_V = v;
+            P = new vector<vector<int>>*[v];
+            for(int i = 0; i < v;i++)
+            {
+                P[i] = new vector<vector<int>> [v];
+            }
+            Pstar = new vector<vector<int>>*[v];
+            for(int i = 0; i < v;i++)
+            {
+                Pstar[i] = new vector<vector<int>> [v];
+            }
+            extracted = new bool*[v];
+            for(int i = 0; i < v;i++)
+            {
+                extracted[i] = new bool[v];
+                memset(extracted[i],false,v*sizeof(bool));
+            }
+            for (int i = 0; i < v; i++)
+            {
+                vector<int> u;
+                u.push_back(i); // path to itself
+                pathweight[u] = 0;
+                P[i][i].push_back(u);
+                Pstar[i][i].push_back(u);
+            }
+        }
+        vector<int> right(vector<int> path)
+        {
+            path.erase(path.begin());
+            return path;
+        }
+        vector<int> left(vector<int> path)
+        {
+            path.erase(path.end()-1);
+            return path;
+        }    
+};
 const double INF = numeric_limits<double>::infinity();
 
 vector<vector<double>> generate_random_graph(int V, int E) {
@@ -29,7 +81,266 @@ vector<vector<double>> generate_random_graph(int V, int E) {
 
     return graph;
 }
+// Function for ISP proposed by DEMETRESCU and ITALIANO in 2004
+vector<vector<double>> incremental_LDSP(vector<vector<double>> &graph, DS *state, int u, int v, double w) {
+    //printf("add an edge with value %f from %d to %d\n",w,u,v);
+    auto d = graph;
+    struct pathwithweight{
+    vector<int> path;
+    double weight;
+    };
+    //This algorithm supports update all the edges incident to a vertex.
+    //Here we only want to test it together with other algorithms, so only consider single update.
+    graph[u][v] = w; 
+    //Step 1: Clean up
+    vector< vector<int> > Q;
+    vector<int> path_u;
+    path_u.push_back(u);
+    Q.push_back(path_u);
+    while(!Q.empty())
+    {
+        vector<int> pi = Q.back();
+        Q.pop_back();
+        vector< vector<int> > Leftlist = state->L[pi];
+        vector< vector<int> > Rightlist = state->R[pi];
+        vector< vector<int> > LR = Leftlist;
+        LR.insert(LR.end(), Rightlist.begin(), Rightlist.end());
+        for (int i = 0;i < LR.size();i++)
+        {
+            vector<int> pi_xy = LR[i];
+            Q.push_back(pi_xy);
+            int x = pi_xy.front();
+            int y = pi_xy.back();
+            for(int i = 0; i < state->P[x][y].size(); i++)
+            {
+                if(state->P[x][y][i] == pi_xy)
+                {
+                    state->P[x][y].erase(state->P[x][y].begin()+i);
+                    break;
+                }
+            }
+            for(int i = 0; i < state->Pstar[x][y].size(); i++)
+            {
+                if(state->Pstar[x][y][i] == pi_xy)
+                {
+                    state->Pstar[x][y].erase(state->Pstar[x][y].begin()+i);
+                    break;
+                }
+            }
+            vector< vector<int> > Lrpi = state->L[state->right(pi_xy)];
+            for(int i = 0;i < Lrpi.size();i++)
+            {
+                if (Lrpi[i] == pi_xy)
+                {
+                    Lrpi.erase(Lrpi.begin()+i);
+                    state->L[state->right(pi_xy)] = Lrpi;
+                    break;
+                }
+            }
+            vector< vector<int> > Rlpi = state->R[state->left(pi_xy)];
+            for(int i = 0;i < Rlpi.size();i++)
+            {
+                if (Rlpi[i] == pi_xy)
+                {
+                    Rlpi.erase(Rlpi.begin()+i);
+                    state->R[state->left(pi_xy)] = Rlpi;
+                    break;
+                }
+            }
+            vector< vector<int> > Lstar_rpi = state->Lstar[state->right(pi_xy)];
+            for(int i = 0;i < Lstar_rpi.size();i++)
+            {
+                if (Lstar_rpi[i] == pi_xy)
+                {
+                    Lstar_rpi.erase(Lstar_rpi.begin()+i);
+                    state->Lstar[state->right(pi_xy)] = Lstar_rpi;
+                    break;
+                }
+            }
+            vector< vector<int> > Rstar_rpi = state->Rstar[state->left(pi_xy)];
+            for(int i = 0;i < Rstar_rpi.size();i++)
+            {
+                if (Rstar_rpi[i] == pi_xy)
+                {
+                    Rstar_rpi.erase(Rstar_rpi.begin()+i);
+                    state->Rstar[state->left(pi_xy)] = Lstar_rpi;
+                    break;
+                }
+            }
+        }
+    }
+    //end of clean up
+    //Step 2: fix up
+    //This algorithm supports multiple updates. Here we only test single modification.
+    //u->v
+    graph[u][v] = w;
+    for(int i = 0; i < state->num_V; i++)
+    {
+        if (graph[u][i] < INF && i != u)
+        {
+            vector<int> path_ui;
+            path_ui.push_back(u);
+            path_ui.push_back(i);
+            
+            state->pathweight[path_ui] = graph[u][i];
+            state->L[state->right(path_ui)].push_back(path_ui);
+            state->R[state->left(path_ui)].push_back(path_ui);
+            state->P[u][i].push_back(path_ui);
+        }
+        if(graph[i][u] < INF && i != u)
+        {
+            vector<int> path_iu;
+            path_iu.push_back(i);
+            path_iu.push_back(u);
+                        
+            state->pathweight[path_iu] = graph[i][u];
+            state->L[state->right(path_iu)].push_back(path_iu);
+            state->R[state->left(path_iu)].push_back(path_iu);
+            state->P[i][u].push_back(path_iu);
+        }
+    } 
+    struct Compareweight {
+    bool operator()(pathwithweight const& p1, pathwithweight const& p2)
+    {
+        return p1.weight < p2.weight;
+    }
+    };
+    //phase 2   
+    priority_queue<pathwithweight, vector<pathwithweight> , Compareweight> H;
+    for(int i = 0;i<state->num_V;i++)
+    {
+        for(int j = 0;j< state->num_V; j++)
+        {
+            pathwithweight path;
+            double minimum_weight = INF;
+            for(int k = 0;k < state->P[i][j].size();k++)
+            {
+                if(state->pathweight[state->P[i][j][k]] < minimum_weight)
+                {
+                    path.weight = state->pathweight[state->P[i][j][k]];
+                    path.path = state->P[i][j][k];
+                }
+            }
+            if(state->P[i][j].size() != 0 && path.path.size() > 1)
+            {
+                H.push(path);
+            }
+        }
+    }    
+    
+    //phase 3
+    while(!H.empty())
+    {
+        pathwithweight p = H.top();
+        H.pop();
+        int x = p.path.front();
+        int y = p.path.back();
+        if(state->extracted[x][y]==1)continue;
+        state->extracted[x][y] = 1;
+        for(int i = 0; i < state->Pstar[x][y].size();i++)
+        {
+            if(state->Pstar[x][y][i] == p.path)
+            {
+                continue;
+            }
+        }
+        state->Pstar[x][y].push_back(p.path);
+        vector<vector<int> > modified_Lstarvalue = state->Lstar[state->right(p.path)];
+        modified_Lstarvalue.push_back(p.path);
+        state->Lstar[state->right(p.path)] = modified_Lstarvalue;
 
+        vector<vector<int> > modified_Rstarvalue = state->Rstar[state->left(p.path)];
+        modified_Rstarvalue.push_back(p.path);
+        state->Rstar[state->left(p.path)] = modified_Rstarvalue;
+
+        
+        vector<vector<int> > Lstarl = state->Lstar[state->left(p.path)];
+        for(int i = 0;i < Lstarl.size();i++)
+        {
+            vector<int> pi_xp_b = Lstarl[i];
+            int xp = pi_xp_b.front();
+            
+            vector<int> pi_xp_y = p.path;
+            pi_xp_y.insert(pi_xp_y.begin(),xp);
+            state->pathweight[pi_xp_y] = state->pathweight[p.path] + graph[xp][x];
+            state->P[xp][y].push_back(pi_xp_y);
+            vector<vector<int> > temp = state->L[p.path];
+            temp.push_back(pi_xp_y);
+            state->L[p.path] = temp;
+
+            temp = state->R[pi_xp_b];
+            temp.push_back(pi_xp_y);
+            state->R[pi_xp_b] = temp;
+            pathwithweight p_w_xp_y;
+            p_w_xp_y.path = pi_xp_y;
+            p_w_xp_y.weight = state->pathweight[pi_xp_y];
+            H.push(p_w_xp_y);
+        }
+
+        vector<vector<int> > Rstarr = state->Rstar[state->right(p.path)];
+        for(int i = 0;i < Rstarr.size();i++)
+        {
+            vector<int> pi_a_yp = Rstarr[i];
+            int yp = pi_a_yp.back();
+            
+            vector<int> pi_x_yp = p.path;
+            pi_x_yp.push_back(yp);
+            state->pathweight[pi_x_yp] = state->pathweight[p.path] + graph[y][yp];
+            state->P[x][yp].push_back(pi_x_yp);
+            vector<vector<int> > temp = state->L[pi_a_yp];
+            temp.push_back(pi_x_yp);
+            state->L[pi_a_yp] = temp;
+
+            temp = state->R[p.path];
+            temp.push_back(pi_x_yp);
+            state->R[p.path] = temp;
+            pathwithweight p_w_x_yp;
+            p_w_x_yp.path = pi_x_yp;
+            p_w_x_yp.weight = state->pathweight[pi_x_yp];
+            H.push(p_w_x_yp);
+        }
+    }
+    for(int i = 0; i < state->num_V;i++)
+    {
+        memset(state->extracted[i],false,state->num_V);
+    }
+    //update distance 
+    for(int i = 0;i < state->num_V; i++)
+    {
+        for(int j = 0;j < state->num_V; j++)
+        {
+            
+            vector<vector<int> > shortestpath = state->Pstar[i][j];
+            
+            if(shortestpath.empty()) {
+                d[i][j] = INF;
+            }
+            else {
+                d[i][j] = state->pathweight[shortestpath[0]];
+            }
+            
+        }           
+    }
+    //print the distance 
+    /*
+    printf("distance:\n");
+    for (int i = 0; i < state->num_V; i++) 
+    {
+        for (int j = 0; j < state->num_V; j++) 
+        {
+            double val = d[i][j];
+            
+            if (val  >= 900000)
+                cout << "INF   ";
+            else
+                cout << val << "   ";
+            
+        }
+        cout << "\n";
+    }
+    */
+    return d;
+}
 
 //this function doesn't modify graph but return u,v, and w for edge update
 tuple<int, int, double> pick_random_edge_for_update(const vector<vector<double>>& graph) {
@@ -44,7 +355,6 @@ tuple<int, int, double> pick_random_edge_for_update(const vector<vector<double>>
             }
         }
     }
-
     // Randomly select one edge and suggest a new weight less than the current weight
     if (!edges.empty()) {
         int index = rand() % edges.size();
@@ -58,8 +368,6 @@ tuple<int, int, double> pick_random_edge_for_update(const vector<vector<double>>
         throw std::runtime_error("No valid edges found in the graph for updating.");
     }
 }
-
-
 // Function to run the Floyd-Warshall algorithm and return the distance matrix
 vector<vector<double>> floyd_warshall(const vector<vector<double>>& graph) {
     int V = graph.size();
@@ -316,9 +624,45 @@ void test_quinca() {
     cout << "All tests passed for QUINCA algorithm" << endl;
 }
 
+void test_LDSP() {
+    // LDSP algorithm need to maintain a data structure from the first edge added to the graph.
+    // Set up for different tests
+    int vertices[5] = {5, 10, 20, 30, 40};  // Number of vertices for each test
+    int edges[5] = {1, 2, 3, 4, 5};    // Number of edges for each test
+
+    for (int i = 0; i < 5; ++i) {
+        int V = vertices[i];
+        int E = edges[i];
+        DS state(V);
+        auto graph = generate_random_graph(V, E);
+        //catch up the current graph
+        for(int i = 0;i<V;i++)
+        {
+            for(int j=0;j<V;j++)
+            {
+                if (i==j) continue;
+                if(graph[i][j] < INF)
+                { 
+                    incremental_LDSP(graph, &state, i, j, graph[i][j]);
+                    break;
+                }
+            }
+        }
+        auto [u, v, w] = pick_random_edge_for_update(graph);
+        auto original_distance = floyd_warshall(graph);
+       
+
+        assert(incremental_LDSP(graph,&state, u, v, w) == update_and_floyd_warshall(graph, u, v, w));
+
+    }
+
+    cout << "All tests passed for LDSP algorithm" << endl;
+}
+
 
 int main() {
     test_floyd();
     test_pr();
     test_quinca();
+    test_LDSP();
 }
