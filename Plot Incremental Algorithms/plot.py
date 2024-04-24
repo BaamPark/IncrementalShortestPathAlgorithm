@@ -1,6 +1,12 @@
 from funcs import generate_random_graph, pick_random_edge_for_update, floyd_warshall, update_and_floyd_warshall, incremental_apsp_pr, incremental_apsp_quinca
 import time
 import matplotlib.pyplot as plt
+import random
+import numpy as np
+
+# Set the seed for reproducibility
+random.seed(42)
+np.random.seed(42)
 
 def measure_performance(V, E):
     graph = generate_random_graph(V, E)
@@ -29,7 +35,7 @@ def measure_performance(V, E):
     return duration_naive, duration_pr, duration_quinca
 
 def main():
-    V_range = range(10, 101, 5)  # Adjust range and step as needed
+    V_range = range(10, 201, 5)  # Adjust range and step as needed
     E = 10  # Example number of edges, adjust based on the graph density you want
     naive_times, pr_times, quinca_times = [], [], []
 
@@ -39,10 +45,14 @@ def main():
         pr_times.append(t_pr)
         quinca_times.append(t_quinca)
 
+    average_naive = sum(naive_times) / len(naive_times)
+    average_pr = sum(pr_times) / len(pr_times)
+    average_quinca = sum(quinca_times) / len(quinca_times)
+
     plt.figure(figsize=(10, 5))
-    plt.plot(V_range, naive_times, label='Naive Floyd-Warshall')
-    plt.plot(V_range, pr_times, label='PR Algorithm')
-    plt.plot(V_range, quinca_times, label='QUINCA Algorithm')
+    plt.plot(V_range, naive_times, label=f'Naive Floyd-Warshall (Avg: {average_naive:.2f} μs)')
+    plt.plot(V_range, pr_times, label=f'PR Algorithm (Avg: {average_pr:.2f} μs)')
+    plt.plot(V_range, quinca_times, label=f'QUINCA Algorithm (Avg: {average_quinca:.2f} μs)')
     plt.xlabel('Number of Vertices V')
     plt.ylabel('Time (microseconds)')
     plt.title('Performance Comparison of APSP Algorithms')
@@ -51,5 +61,6 @@ def main():
     plt.yscale('log')  # Set y-axis to logarithmic scale
     plt.savefig('performance_comparison.png')
     plt.show()
+
 if __name__ == "__main__":
     main()

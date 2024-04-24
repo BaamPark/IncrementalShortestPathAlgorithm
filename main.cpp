@@ -66,6 +66,7 @@ tuple<int, int, double> pick_random_edge_for_update(const vector<vector<double>>
 
 
 // Function to run the Floyd-Warshall algorithm and return the distance matrix
+//O(V3)
 vector<vector<double>> floyd_warshall(const vector<vector<double>>& graph) {
     int V = graph.size();
     vector<vector<double>> distance = graph; // Start with the adjacency matrix as a base for the distance matrix
@@ -91,7 +92,7 @@ vector<vector<double>> floyd_warshall(const vector<vector<double>>& graph) {
     return distance;
 }
 
-
+//O(V3)
 vector<vector<double>> update_and_floyd_warshall(vector<vector<double>>& graph, int u, int v, double w) {
     // Update the graph with the new weight for the edge between u and v
     graph[u][v] = w;
@@ -100,7 +101,7 @@ vector<vector<double>> update_and_floyd_warshall(vector<vector<double>>& graph, 
     return floyd_warshall(graph);
 }
 
-
+//O(m)
 vector<int> find_affected_source(vector<vector<double>>& distance, int u, int v, double w) {
     int n = distance.size();
 
@@ -135,7 +136,7 @@ vector<int> find_affected_source(vector<vector<double>>& distance, int u, int v,
 
 
 // PR algorithm proposed by Ramalingam and Rep
-// time complexity O(V+E)
+// time complexity O(V^2), Θ(∣∣S(v)∣∣+∑∣∣T(x)∣∣).
 vector<vector<double>> incremental_apsp_pr(vector<vector<double>>& distance, int u, int v, double w) {
 
     vector<int> sources = find_affected_source(distance, u, v, w);
@@ -170,6 +171,7 @@ vector<vector<double>> incremental_apsp_pr(vector<vector<double>>& distance, int
 
 
 //QUINCA algorithm proposed by Slobbe, Bergamini, and Meyerhenke
+//O(V^2) Θ(∣∣S(v)∣∣+∣∣T(u)∣∣+∑∣S(P(y))∣)
 vector<vector<double>> incremental_apsp_quinca(vector<vector<double>>& distances, int u, int v, double w_prime) {
     int n = distances.size();
     vector<int> affected_sources = find_affected_source(distances, u, v, w_prime);
@@ -226,8 +228,8 @@ void printVector(const std::vector<int>& sources) {
 }
 
 int main() {
-    int V = 50;  // Number of vertices
-    int E = 25;  // Number of edges
+    int V = 500;  // Number of vertices
+    int E = 50;  // Number of edges
 
     vector<vector<double>> graph = generate_random_graph(V, E);
     auto [u, v, w] = pick_random_edge_for_update(graph);
