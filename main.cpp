@@ -3,11 +3,67 @@
 #include <vector>
 #include <limits>
 #include <queue>
+#include <chrono>
+#include <cstdlib>
 
+using namespace std::chrono;
 using namespace std;
 
 // Define infinity as the maximum value for a double
 const double INF = numeric_limits<double>::infinity();
+
+// Generate a random directed weighted graph
+vector<vector<double>> generate_random_graph(int V, int E) {
+    vector<vector<double>> graph(V, vector<double>(V, INF));
+
+    for (int i = 0; i < E; ++i) {
+        int u = rand() % V;
+        int v = rand() % V;
+        double w = rand() % 100 + 1;  // Edge weight between 1 and 100
+
+        // Ensure we don't set a node to itself and only set the directed edge from u to v
+        if (u != v) {
+            graph[u][v] = w;  // Only set the edge from u to v
+        }
+    }
+
+    // Diagonal should be 0, indicating no self-loops
+    for (int i = 0; i < V; ++i) {
+        graph[i][i] = 0;
+    }
+
+    return graph;
+}
+
+
+//this function doesn't modify graph but return u,v, and w for edge update
+tuple<int, int, double> pick_random_edge_for_update(const vector<vector<double>>& graph) {
+    int V = graph.size();
+    vector<tuple<int, int, double>> edges;
+
+    // Collect all edges with a set weight
+    for (int u = 0; u < V; ++u) {
+        for (int v = 0; v < V; ++v) {
+            if (graph[u][v] != INF && graph[u][v] != 0 && u != v) {
+                edges.push_back(make_tuple(u, v, graph[u][v]));
+            }
+        }
+    }
+
+    // Randomly select one edge and suggest a new weight less than the current weight
+    if (!edges.empty()) {
+        int index = rand() % edges.size();
+        int u = get<0>(edges[index]);
+        int v = get<1>(edges[index]);
+        double current_weight = get<2>(edges[index]);
+        double new_weight = (rand() % static_cast<int>(current_weight)) + 1;  // Ensure new weight is less and > 0
+
+        return make_tuple(u, v, new_weight);
+    } else {
+        throw std::runtime_error("No valid edges found in the graph for updating.");
+    }
+}
+
 
 // Function to run the Floyd-Warshall algorithm and return the distance matrix
 vector<vector<double>> floyd_warshall(const vector<vector<double>>& graph) {
@@ -36,6 +92,15 @@ vector<vector<double>> floyd_warshall(const vector<vector<double>>& graph) {
 }
 
 
+vector<vector<double>> update_and_floyd_warshall(vector<vector<double>>& graph, int u, int v, double w) {
+    // Update the graph with the new weight for the edge between u and v
+    graph[u][v] = w;
+
+    // Run the Floyd-Warshall algorithm on the updated graph
+    return floyd_warshall(graph);
+}
+
+
 vector<int> find_affected_source(vector<vector<double>>& distance, int u, int v, double w) {
     int n = distance.size();
 
@@ -45,6 +110,7 @@ vector<int> find_affected_source(vector<vector<double>>& distance, int u, int v,
     if (distance[u][v] > w) {
         queue<int> Q;
         Q.push(u);
+        affected_sources.push_back(u);
         vis[u] = true;
 
         while (!Q.empty()) {
@@ -67,6 +133,7 @@ vector<int> find_affected_source(vector<vector<double>>& distance, int u, int v,
     return affected_sources;
 }
 
+
 // PR algorithm proposed by Ramalingam and Rep
 // time complexity O(V+E)
 vector<vector<double>> incremental_apsp_pr(vector<vector<double>>& distance, int u, int v, double w) {
@@ -77,7 +144,6 @@ vector<vector<double>> incremental_apsp_pr(vector<vector<double>>& distance, int
         vector<bool> vis(V, false);
         queue<int> Q;
 
-        distance[u][v] = w;
         // Update the distance from source to v if the new path is shorter
         if (distance[s][v] > distance[s][u] + w) {
             distance[s][v] = distance[s][u] + w;
@@ -101,6 +167,7 @@ vector<vector<double>> incremental_apsp_pr(vector<vector<double>>& distance, int
     }
     return distance;
 }
+
 
 //QUINCA algorithm proposed by Slobbe, Bergamini, and Meyerhenke
 vector<vector<double>> incremental_apsp_quinca(vector<vector<double>>& distances, int u, int v, double w_prime) {
@@ -137,6 +204,7 @@ vector<vector<double>> incremental_apsp_quinca(vector<vector<double>>& distances
     return distances; // Return the updated distance matrix
 }
 
+
 void print_distance(vector<vector<double>> distance) {
     for (const auto& row : distance) {
         for (double val : row) {
@@ -149,36 +217,48 @@ void print_distance(vector<vector<double>> distance) {
     }
 }
 
-int main() {
-    int V = 6;
-    vector<vector<double>> graph(V, vector<double>(V, 0));
 
-    graph[0][2] = 1;
-    graph[1][2] = 2;
-    graph[3][4] = 2;
-    graph[3][5] = 1;
-    graph[4][0] = 3;
-    graph[5][1] = 3;
+void printVector(const std::vector<int>& sources) {
+    for (int num : sources) {
+        std::cout << num << " ";
+    }
+    std::cout << std::endl;
+}
+
+int main() {
+    int V = 50;  // Number of vertices
+    int E = 25;  // Number of edges
+
+    vector<vector<double>> graph = generate_random_graph(V, E);
+    auto [u, v, w] = pick_random_edge_for_update(graph);
+    std::cout << "Updating edge (" << u << ", " << v << ") from weight " << graph[u][v] << " to " << w << std::endl;
 
     // Run Floyd-Warshall algorithm and return the distance matrix
     vector<vector<double>> distance = floyd_warshall(graph);
     vector<vector<double>> distance_for_PR = distance;
     vector<vector<double>> distance_for_QUINCA = distance;
-    // Print the distance matrix
-    cout << "Initial Distance Matrix:\n";
-    print_distance(distance);
+    vector<vector<double>> distance_naive;
 
-    int u = 2, v = 3;
-    double w = 1;
-    vector<int> sources = find_affected_source(distance_for_PR, u, v, w);
+    //Measure naive floyd warshall algorithm
+    auto start_naive = high_resolution_clock::now();
+    distance_naive = update_and_floyd_warshall(graph, u, v, w);
+    auto end_naive = high_resolution_clock::now();
+    auto duration_naive = duration_cast<microseconds>(end_naive - start_naive);
+    cout << "Time taken by Naive Floyd Warshall algorithm: " << duration_naive.count() << " microseconds\n";
 
+    // Measure PR algorithm
+    auto start_pr = high_resolution_clock::now();
     distance_for_PR = incremental_apsp_pr(distance_for_PR, u, v, w);
-    cout << "Updated Distance Matrix by PR algorithm:\n";
-    print_distance(distance_for_PR);
+    auto end_pr = high_resolution_clock::now();
+    auto duration_pr = duration_cast<microseconds>(end_pr - start_pr);
+    cout << "Time taken by PR algorithm: " << duration_pr.count() << " microseconds\n";
 
+    // Measure QUINCA algorithm
+    auto start_quinca = high_resolution_clock::now();
     distance_for_QUINCA = incremental_apsp_quinca(distance_for_QUINCA, u, v, w);
-    cout << "Updated Distance Matrix by PR algorithm:\n";
-    print_distance(distance_for_QUINCA);
+    auto end_quinca = high_resolution_clock::now();
+    auto duration_quinca = duration_cast<microseconds>(end_quinca - start_quinca);
+    cout << "Time taken by QUINCA algorithm: " << duration_quinca.count() << " microseconds\n";
 
     return 0;
 }
