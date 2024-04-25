@@ -99,6 +99,7 @@ vector<vector<double>> incremental_LDSP(vector<vector<double>> &graph, DS *state
     Q.push_back(path_u);
     while(!Q.empty())
     {
+        //cout << Q.size() << endl;
         vector<int> pi = Q.back();
         Q.pop_back();
         vector< vector<int> > Leftlist = state->L[pi];
@@ -169,15 +170,18 @@ vector<vector<double>> incremental_LDSP(vector<vector<double>> &graph, DS *state
             }
         }
     }
+    //cout << "cleanupend" << endl;
     //end of clean up
     //Step 2: fix up
     //This algorithm supports multiple updates. Here we only test single modification.
     //u->v
     graph[u][v] = w;
+    //cout << "considered edges:" << endl;
     for(int i = 0; i < state->num_V; i++)
     {
         if (graph[u][i] < INF && i != u)
         {
+            //cout << u << "," << i << endl;
             vector<int> path_ui;
             path_ui.push_back(u);
             path_ui.push_back(i);
@@ -189,6 +193,7 @@ vector<vector<double>> incremental_LDSP(vector<vector<double>> &graph, DS *state
         }
         if(graph[i][u] < INF && i != u)
         {
+            //cout << i << "," << u << endl;
             vector<int> path_iu;
             path_iu.push_back(i);
             path_iu.push_back(u);
@@ -202,11 +207,14 @@ vector<vector<double>> incremental_LDSP(vector<vector<double>> &graph, DS *state
     struct Compareweight {
     bool operator()(pathwithweight const& p1, pathwithweight const& p2)
     {
-        return p1.weight < p2.weight;
+        return p1.weight > p2.weight;
     }
     };
+    //cout << "phase 1 end" << endl;
     //phase 2   
     priority_queue<pathwithweight, vector<pathwithweight> , Compareweight> H;
+    
+    //cout << "from P to H:" << endl;
     for(int i = 0;i<state->num_V;i++)
     {
         for(int j = 0;j< state->num_V; j++)
@@ -219,24 +227,44 @@ vector<vector<double>> incremental_LDSP(vector<vector<double>> &graph, DS *state
                 {
                     path.weight = state->pathweight[state->P[i][j][k]];
                     path.path = state->P[i][j][k];
+                    minimum_weight = path.weight;
                 }
             }
+            
             if(state->P[i][j].size() != 0 && path.path.size() > 1)
-            {
+            {   
+                /*
+                for (int i = 0;i < path.path.size();i++)
+                    {
+                    cout << path.path[i] << " ";
+                    }
+                cout << endl;
+                */
                 H.push(path);
             }
         }
-    }    
-    
+    }   
+    //cout << "---------------"<<endl;
+    //cout << "phase 2 end" << endl;
     //phase 3
     while(!H.empty())
     {
+        //cout << H.size() << endl;
         pathwithweight p = H.top();
         H.pop();
         int x = p.path.front();
         int y = p.path.back();
         if(state->extracted[x][y]==1)continue;
         state->extracted[x][y] = 1;
+
+        /*
+        cout << "poping:" <<endl;
+        for (int i = 0;i < p.path.size();i++)
+        {
+            cout << p.path[i] << " ";
+        }
+        */
+
         for(int i = 0; i < state->Pstar[x][y].size();i++)
         {
             if(state->Pstar[x][y][i] == p.path)
@@ -255,10 +283,30 @@ vector<vector<double>> incremental_LDSP(vector<vector<double>> &graph, DS *state
 
         
         vector<vector<int> > Lstarl = state->Lstar[state->left(p.path)];
+        //cout << "in Ll:" << endl;
         for(int i = 0;i < Lstarl.size();i++)
         {
             vector<int> pi_xp_b = Lstarl[i];
             int xp = pi_xp_b.front();
+            bool iwantcontinue = false;
+            for(int k = 0; k < p.path.size();k++)
+            {
+                if(xp == p.path[k])
+                {
+                    iwantcontinue = true;
+                }
+            }
+            if(iwantcontinue)
+            {
+                continue;
+            }
+            /*
+            for(int k = 0; k < Lstarl[i].size();k++)
+            {
+                cout << Lstarl[i][k] << " ";
+            }
+            cout << ",";
+            */
             
             vector<int> pi_xp_y = p.path;
             pi_xp_y.insert(pi_xp_y.begin(),xp);
@@ -275,14 +323,27 @@ vector<vector<double>> incremental_LDSP(vector<vector<double>> &graph, DS *state
             p_w_xp_y.path = pi_xp_y;
             p_w_xp_y.weight = state->pathweight[pi_xp_y];
             H.push(p_w_xp_y);
+
         }
 
+        vector<int> rpath = state->right(p.path);
         vector<vector<int> > Rstarr = state->Rstar[state->right(p.path)];
         for(int i = 0;i < Rstarr.size();i++)
         {
             vector<int> pi_a_yp = Rstarr[i];
             int yp = pi_a_yp.back();
-            
+            bool iwantcontinue = false;
+            for(int k = 0; k < p.path.size();k++)
+            {
+                if(yp == p.path[k])
+                {
+                    iwantcontinue = true;
+                }
+            }
+            if(iwantcontinue)
+            {
+                continue;
+            }
             vector<int> pi_x_yp = p.path;
             pi_x_yp.push_back(yp);
             state->pathweight[pi_x_yp] = state->pathweight[p.path] + graph[y][yp];
@@ -311,14 +372,22 @@ vector<vector<double>> incremental_LDSP(vector<vector<double>> &graph, DS *state
         {
             
             vector<vector<int> > shortestpath = state->Pstar[i][j];
-            
             if(shortestpath.empty()) {
                 d[i][j] = INF;
             }
             else {
-                d[i][j] = state->pathweight[shortestpath[0]];
+                int imin=0;
+                double min_weight = INF;
+                for(int k = 0; k < shortestpath.size();k++)
+                {
+                    if (state->pathweight[shortestpath[k]] < min_weight)
+                    {
+                        imin = k;
+                        min_weight = state->pathweight[shortestpath[k]];
+                    }
+                }
+                d[i][j] = state->pathweight[shortestpath[imin]];
             }
-            
         }           
     }
     //print the distance 
@@ -627,15 +696,17 @@ void test_quinca() {
 void test_LDSP() {
     // LDSP algorithm need to maintain a data structure from the first edge added to the graph.
     // Set up for different tests
-    int vertices[5] = {5, 10, 20, 30, 40};  // Number of vertices for each test
-    int edges[5] = {1, 2, 3, 4, 5};    // Number of edges for each test
+    int vertices[5] = {300,10,20,30,40};  // Number of vertices for each test
+    int edges[5] = {50,2,3,4,5};    // Number of edges for each test
 
     for (int i = 0; i < 5; ++i) {
+        //cout << "test" << i << endl;
         int V = vertices[i];
         int E = edges[i];
         DS state(V);
         auto graph = generate_random_graph(V, E);
         //catch up the current graph
+        vector< vector<double> > d;
         for(int i = 0;i<V;i++)
         {
             for(int j=0;j<V;j++)
@@ -643,19 +714,34 @@ void test_LDSP() {
                 if (i==j) continue;
                 if(graph[i][j] < INF)
                 { 
-                    incremental_LDSP(graph, &state, i, j, graph[i][j]);
+                    d = incremental_LDSP(graph, &state, i, j, graph[i][j]);
                     break;
                 }
             }
         }
+
         auto [u, v, w] = pick_random_edge_for_update(graph);
+            
         auto original_distance = floyd_warshall(graph);
-       
-
-        assert(incremental_LDSP(graph,&state, u, v, w) == update_and_floyd_warshall(graph, u, v, w));
-
+        /*
+    printf("ori distance:\n");
+    for (int i = 0; i < V; i++) 
+    {
+        for (int j = 0; j < V; j++) 
+        {
+            double val = original_distance[i][j];
+            
+            if (val  >= 900000)
+                cout << "INF   ";
+            else
+                cout << val << "   ";
+            
+        }
+        cout << "\n";
     }
-
+    */
+        assert(incremental_LDSP(graph,&state, u, v, w) == update_and_floyd_warshall(graph, u, v, w));
+    }
     cout << "All tests passed for LDSP algorithm" << endl;
 }
 
