@@ -12,7 +12,7 @@
 - Read papers, Find more related papers.
 
 ## Week4
-- Implemented the first step of an incremental shortest path algorithm proposed in 2004. It's a complicated algorithm with multiple steps.
+- Implemented LDSP algorithm proposed in 2004.
 - Implemented QUINCA algorithm proposed in 2016
 - Wrote unit testing for QUINCA and PR algorithms
 - Benchmarked the QUINCA, PR algorithms 
