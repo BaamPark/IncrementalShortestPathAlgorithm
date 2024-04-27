@@ -178,7 +178,6 @@ vector<int> find_affected_source(vector<vector<double>>& distance, int u, int v,
                 }
             }
         }
-
         // Reset vis vector to false for all vertices.
         fill(vis.begin(), vis.end(), false);
     }
@@ -608,8 +607,8 @@ void printVector(const std::vector<int>& sources) {
 }
 
 int main() {
-    int V = 500;  // Number of vertices
-    int E = 50;  // Number of edges
+    int V = 100;  // Number of vertices
+    int E = 80;  // Number of edges
 
     vector<vector<double>> graph = generate_random_graph(V, E);
     auto [u, v, w] = pick_random_edge_for_update(graph);

@@ -3,21 +3,81 @@ import sys
 from collections import deque
 import time
 import numpy as np
+import copy
 
 INF = float('inf')
+class path:
 
+    def __init__(self,*vertices):
+        self.path=[]
+        self.weight = 0
+        for v in vertices:
+            self.path.append(v)
+    def right(self):
+        return tuple(self.path[1:])
+    def left(self):
+        return tuple(self.path[:-1])
+    def tupleself(self):
+        return tuple(self.path)
+class pathqueue:
+    def __init__(self,*paths):
+        self.set = []
+        for p in paths:
+            self.set.append(p)
+    def sort(self):
+        self.set = sorted(self.set, key=lambda x: x.weight)
+    def top(self):
+        self.set = sorted(self.set, key=lambda x: x.weight)
+        return self.set[0]
+    def pop(self):
+        self.set = sorted(self.set, key=lambda x: x.weight)
+        smallest = self.set[0]
+        self.set.pop(0)
+        return smallest
+    def add(self,path):
+        self.set.append(path)
+        return self
+    def delete(self,path):
+        for pp in self.set:
+            if path.path == pp.path and path.weight == pp.weight:
+                self.set.remove(pp)
+                return self
+        return self
+    def find(self,path):
+        for pp in self.set:
+            if path.path == pp.path and path.weight == pp.weight:
+                return True
+        return False
+class State:
+    def __init__(self,V):
+        self.V = V
+        self.P = [[pathqueue() for _ in range(V)] for _ in range(V)]
+        self.Pstar = [[pathqueue() for _ in range(V)] for _ in range(V)]
+        self.weight = dict([])
+        self.L = dict([])
+        self.R = dict([])
+        self.Lstar = dict([])
+        self.Rstar = dict([])
+def LDSP_init(graph,V):
+    state = State(V)
+    for u in range(V):
+        state,distance = incremental_apsp_LDSP(state, graph, u)
+    return state,distance
 
 def main():
     V = 10  # Number of vertices
-    E = 5  # Number of edges
+    E = 5 # Number of edges
+
 
     graph = generate_random_graph(V, E)
-    u, v, w = pick_random_edge_for_update(graph)
-    print(f"Updating edge ({u}, {v}) from weight {graph[u][v]} to {w}")
 
+    u, v, w = pick_random_edge_for_update(graph)
+    #graph = graphdebug()
+    #u,v,w = edge_degug()
+    print(f"Updating edge ({u}, {v}) from weight {graph[u][v]} to {w}")
     # Run Floyd-Warshall algorithm and return the distance matrix
     original_distance = floyd_warshall(graph)
-    
+    state,LDSP_distance = LDSP_init(graph.copy(),V)
     # Update graph for subsequent tests
     graph[u][v] = w
 
@@ -25,14 +85,16 @@ def main():
     naive_distance = floyd_warshall(graph)
     pr_distance = incremental_apsp_pr(original_distance.copy(), u, v, w)
     quinca_distance = incremental_apsp_quinca(original_distance.copy(), u, v, w)
-
+    state,LDSP_distance = incremental_apsp_LDSP(state,graph.copy(),u)
     # Compare the results
     are_same_naive_pr = np.array_equal(naive_distance, pr_distance)
     are_same_naive_quinca = np.array_equal(naive_distance, quinca_distance)
+    are_same_naive_LDSP = np.array_equal(naive_distance, LDSP_distance)
     are_same_pr_quinca = np.array_equal(pr_distance, quinca_distance)
 
     print(f"Naive vs PR results are the same: {are_same_naive_pr}")
     print(f"Naive vs QUINCA results are the same: {are_same_naive_quinca}")
+    print(f"Naive vs LDSP results are the same: {are_same_naive_LDSP}")
     print(f"PR vs QUINCA results are the same: {are_same_pr_quinca}")
 
 
@@ -54,8 +116,6 @@ def generate_random_graph(V, E):
         graph[i][i] = 0
 
     return graph
-
-
 def pick_random_edge_for_update(graph):
     V = len(graph)
     edges = []
@@ -74,7 +134,7 @@ def pick_random_edge_for_update(graph):
         return u, v, new_weight
     else:
         raise ValueError("No valid edges found in the graph for updating.")
-    
+
 
 def floyd_warshall(graph):
     V = len(graph)
@@ -181,5 +241,148 @@ def incremental_apsp_quinca(distances, u, v, w_prime):
 
     return distances  # Return the updated distance matrix
 
+def incremental_apsp_LDSP(state,graph,u):
+    LDSP_distance = copy.deepcopy(graph)
+    #step1: cleanup
+    pi = path(u)
+    Q = pathqueue()
+    Q.add(pi)
+    while(len(Q.set)):
+        pixy = Q.pop()
+
+        if pixy.tupleself() in state.L:
+            for p in state.L[pixy.tupleself()].set:
+                Q.add(p)
+                state.P[p.path[0]][p.path[-1]].delete(p)
+                if (p.right() in state.L):
+                    state.L[p.right()] = state.L[p.right()].delete(p)
+                if (p.left() in state.R):
+                    state.R[p.left()] = state.R[p.left()].delete(p)
+                if state.Pstar[p.path[0]][p.path[-1]].find(p):
+                    state.Pstar[p.path[0]][p.path[-1]].delete(p)
+                    if (p.right() in state.Lstar):
+                        state.Lstar[p.right()] = state.Lstar[p.right()].delete(p)
+                    if (p.left() in state.Rstar):
+                        state.Rstar[p.left()] = state.Rstar[p.left()].delete(p)
+        if pixy.tupleself() in state.R:
+            for p in state.R[pixy.tupleself()].set:
+                Q.add(p)
+                state.P[p.path[0]][p.path[-1]].delete(p)
+                if (p.right() in state.L):
+                    state.L[p.right()] = state.L[p.right()].delete(p)
+                if (p.left() in state.R):
+                    state.R[p.left()] = state.R[p.left()].delete(p)
+                if state.Pstar[p.path[0]][p.path[-1]].find(p):
+                    state.Pstar[p.path[0]][p.path[-1]].delete(p)
+                    if (p.right() in state.Lstar):
+                        state.Lstar[p.right()] = state.Lstar[p.right()].delete(p)
+                    if (p.left() in state.Rstar):
+                        state.Rstar[p.left()] = state.Rstar[p.left()].delete(p)
+    #step2: fixup
+    #phase1: check all the edges indicate to u
+    for v in range(state.V):
+        if u != v:
+            if graph[u][v] < INF:
+                p_uv = path(u,v)
+                state.weight[p_uv] = graph[u][v]
+                p_uv.weight = graph[u][v]
+                state.P[u][v].add(p_uv)
+                if p_uv.right() in state.L:
+                    state.L[p_uv.right()] = state.L[p_uv.right()].add(p_uv)
+                else:
+                    state.L[p_uv.right()] = pathqueue(p_uv)
+                if (p_uv.left() in state.R):
+                    state.R[p_uv.left()] = state.R[p_uv.left()].add(p_uv)
+                else:
+                    state.R[p_uv.left()] = pathqueue(p_uv)
+            if graph[v][u] < INF:
+                p_vu = path(v,u)
+                state.weight[p_vu] = graph[v][u]
+                p_vu.weight = graph[v][u]
+                state.P[v][u].add(p_vu)
+
+                if (p_vu.right() in state.L):
+                    state.L[p_vu.right()] = state.L[p_vu.right()].add(p_vu)
+                else:
+                    state.L[p_vu.right()] = pathqueue(p_vu)
+                if (p_vu.left() in state.R):
+                    state.R[p_vu.left()] = state.R[p_vu.left()].add(p_vu)
+                else:
+                    state.R[p_vu.left()] = pathqueue(p_vu)
+    #phase2: add path to H.
+    H = pathqueue()
+    for x in range(state.V):
+        for y in range(state.V):
+            if len(state.P[x][y].set)!= 0:
+                H.add(state.P[x][y].top())
+    tpath = path(2,0)
+    #phase3: process H
+
+    extracted =  [[0 for _ in range(state.V)] for _ in range(state.V)]
+    while(len(H.set)!=0):
+        pixy = H.pop()
+        x = pixy.path[0]
+        y = pixy.path[-1]
+        if(extracted[x][y]==0):
+            extracted[x][y] = 1
+            if not (state.Pstar[x][y].find(pixy)):
+                state.Pstar[x][y].add(pixy)
+                if (pixy.right() in state.Lstar):
+                    state.Lstar[pixy.right()] = state.Lstar[pixy.right()].add(pixy)
+                else:
+                    state.Lstar[pixy.right()] = pathqueue(pixy)
+                if (pixy.left() in state.Rstar):
+                    state.Rstar[pixy.left()] = state.Rstar[pixy.left()].add(pixy)
+                else:
+                    state.Rstar[pixy.left()] = pathqueue(pixy)
+
+
+                if(pixy.left() in state.Lstar):
+                    for p_xp_b in state.Lstar[pixy.left()].set:
+
+                        xp = p_xp_b.path[0]
+                        if xp in pixy.path:
+                            continue
+                        p_xp_y = copy.deepcopy(p_xp_b)
+                        p_xp_y.path.append(y)
+                        state.weight[p_xp_y] = state.weight[pixy] + graph[xp][x]
+                        p_xp_y.weight = state.weight[pixy] + graph[xp][x]
+                        state.P[xp][y].add(p_xp_y)
+                        H.add(p_xp_y)
+                        if (pixy.tupleself() in state.L):
+                            state.L[pixy.tupleself()] = state.L[pixy.tupleself()].add(p_xp_y)
+                        else:
+                            state.L[pixy.tupleself()] = pathqueue(p_xp_y)
+                        if (p_xp_b.tupleself() in state.R):
+                            state.R[p_xp_b.tupleself()] = state.R[p_xp_b.tupleself()].add(p_xp_y)
+                        else:
+                            state.R[p_xp_b.tupleself()] = pathqueue(p_xp_y)
+                if (pixy.right() in state.Rstar):
+                    for p_a_yp in state.Rstar[pixy.right()].set:
+                        yp = p_a_yp.path[-1]
+                        if yp in pixy.path:
+                            continue
+                        p_x_yp = copy.deepcopy(pixy)
+                        p_x_yp.path.append(yp)
+
+                        state.weight[p_x_yp] = state.weight[pixy] + graph[y][yp]
+                        p_x_yp.weight = state.weight[pixy] + graph[y][yp]
+                        state.P[x][yp] = state.P[x][yp].add(p_x_yp)
+
+                        H.add(p_x_yp)
+                        if (p_a_yp.tupleself() in state.L):
+                            state.L[p_a_yp.tupleself()] = state.L[p_a_yp.tupleself()].add(p_x_yp)
+                        else:
+                            state.L[p_a_yp.tupleself()] = pathqueue(p_x_yp)
+                        if (pixy.tupleself() in state.R):
+                            state.R[pixy.tupleself()] = state.R[pixy.tupleself()].add(p_x_yp)
+                        else:
+                            state.R[pixy.tupleself()] = pathqueue(p_x_yp)
+    extracted = [[0 for _ in range(state.V)] for _ in range(state.V)]
+    for u in range(state.V):
+        for v in range(state.V):
+            if len(state.Pstar[u][v].set)!=0:
+                LDSP_distance[u][v] = state.Pstar[u][v].top().weight
+    return state,LDSP_distance
 if __name__ == "__main__":
     main()
